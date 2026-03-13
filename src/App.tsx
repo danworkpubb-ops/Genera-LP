@@ -16,7 +16,10 @@ import {
   ArrowLeft,
   RefreshCw,
   CheckCircle,
-  Copy
+  Copy,
+  Pencil,
+  Check,
+  X
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -82,6 +85,8 @@ export default function App() {
   const [newSiteName, setNewSiteName] = useState('');
   const [createdSiteCredentials, setCreatedSiteCredentials] = useState<{user: string, pass: string, name: string, domain: string} | null>(null);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  const [editingSiteId, setEditingSiteId] = useState<string | null>(null);
+  const [editNameValue, setEditNameValue] = useState('');
 
   // Gestione sessione iniziale
   useEffect(() => {
@@ -114,6 +119,31 @@ export default function App() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleUpdateSiteName = async (siteId: string) => {
+    if (!editNameValue.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_sites')
+        .update({ site_name: editNameValue })
+        .eq('id', siteId);
+
+      if (error) throw error;
+
+      setSites(prev => prev.map(s => s.id === siteId ? { ...s, site_name: editNameValue } : s));
+      setEditingSiteId(null);
+      setNotification({ type: 'success', message: 'Nome del sito aggiornato con successo!' });
+    } catch (err: any) {
+      console.error('Errore aggiornamento nome:', err);
+      setNotification({ type: 'error', message: 'Errore durante l\'aggiornamento del nome.' });
+    }
+  };
+
+  const startEditing = (site: Site) => {
+    setEditingSiteId(site.id);
+    setEditNameValue(site.site_name);
   };
 
   const handleLogout = async () => {
@@ -304,7 +334,33 @@ export default function App() {
                     sites.slice(0, 3).map(site => (
                       <div key={site.id} className="p-4 border border-gray-100 rounded-xl hover:border-indigo-100 transition-colors group">
                         <div className="flex justify-between items-start mb-2">
-                          <p className="font-semibold">{site.site_name}</p>
+                          {editingSiteId === site.id ? (
+                            <div className="flex items-center gap-2 flex-1 mr-2">
+                              <input 
+                                type="text"
+                                value={editNameValue}
+                                onChange={(e) => setEditNameValue(e.target.value)}
+                                className="flex-1 px-2 py-1 text-sm border border-indigo-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                autoFocus
+                              />
+                              <button onClick={() => handleUpdateSiteName(site.id)} className="text-emerald-600 hover:text-emerald-700">
+                                <Check size={16} />
+                              </button>
+                              <button onClick={() => setEditingSiteId(null)} className="text-red-600 hover:text-red-700">
+                                <X size={16} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 group/title">
+                              <p className="font-semibold">{site.site_name}</p>
+                              <button 
+                                onClick={() => startEditing(site)}
+                                className="opacity-0 group-hover/title:opacity-100 p-1 text-gray-400 hover:text-indigo-600 transition-all"
+                              >
+                                <Pencil size={12} />
+                              </button>
+                            </div>
+                          )}
                           <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full ${site.status === 'ready' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                             {site.status}
                           </span>
@@ -429,7 +485,33 @@ export default function App() {
                         {site.status}
                       </span>
                     </div>
-                    <h3 className="text-xl font-bold mb-1">{site.site_name}</h3>
+                    {editingSiteId === site.id ? (
+                      <div className="flex items-center gap-2 mb-4">
+                        <input 
+                          type="text"
+                          value={editNameValue}
+                          onChange={(e) => setEditNameValue(e.target.value)}
+                          className="flex-1 px-3 py-2 border border-indigo-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          autoFocus
+                        />
+                        <button onClick={() => handleUpdateSiteName(site.id)} className="p-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200">
+                          <Check size={20} />
+                        </button>
+                        <button onClick={() => setEditingSiteId(null)} className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">
+                          <X size={20} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 mb-1 group/title">
+                        <h3 className="text-xl font-bold">{site.site_name}</h3>
+                        <button 
+                          onClick={() => startEditing(site)}
+                          className="opacity-0 group-hover/title:opacity-100 p-1.5 text-gray-400 hover:text-indigo-600 transition-all"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      </div>
+                    )}
                     <p className="text-gray-500 text-sm mb-6">{site.domain}</p>
                     <div className="flex gap-3">
                       <button 
