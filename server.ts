@@ -39,14 +39,15 @@ async function startServer() {
 
     try {
       // 1. Crea il progetto su Vercel
-      const url = TEAM_ID 
+      const projectUrl = TEAM_ID 
         ? `https://api.vercel.com/v9/projects?teamId=${TEAM_ID}`
         : `https://api.vercel.com/v9/projects`;
 
-      const response = await axios.post(
-        url,
+      const projectResponse = await axios.post(
+        projectUrl,
         {
           name: siteName.toLowerCase().replace(/\s+/g, '-').substring(0, 30) + '-' + siteId.substring(0, 5),
+          framework: 'vite',
           gitRepository: {
             type: 'github',
             repo: sanitizedRepo,
@@ -59,7 +60,72 @@ async function startServer() {
         }
       );
 
-      res.json(response.data);
+      console.log('Progetto creato con successo:', projectResponse.data.id);
+
+      // 2. Forza il primo Deploy per importare il codice
+      const deployUrl = TEAM_ID 
+        ? `https://api.vercel.com/v13/deployments?teamId=${TEAM_ID}`
+        : `https://api.vercel.com/v13/deployments`;
+
+      const deployResponse = await axios.post(
+        deployUrl,
+        {
+          name: siteName,
+          project: projectResponse.data.id,
+          gitSource: {
+            type: 'github',
+            ref: 'main',
+            repoId: projectResponse.data.link?.repoId || sanitizedRepo,
+          },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${VERCEL_TOKEN}`,
+          },
+        }
+      );
+
+      console.log('Deploy avviato:', deployResponse.data.id);
+      const deploymentId = deployResponse.data.id;
+
+      // 3. Polling per attendere che il deploy sia pronto
+      let isReady = false;
+      let attempts = 0;
+      const maxAttempts = 30; // 30 * 5 secondi = 150 secondi (2.5 minuti)
+      let finalDeployment = deployResponse.data;
+
+      while (!isReady && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        attempts++;
+
+        const checkUrl = TEAM_ID 
+          ? `https://api.vercel.com/v13/deployments/${deploymentId}?teamId=${TEAM_ID}`
+          : `https://api.vercel.com/v13/deployments/${deploymentId}`;
+
+        const checkResponse = await axios.get(checkUrl, {
+          headers: { Authorization: `Bearer ${VERCEL_TOKEN}` },
+        });
+
+        const status = checkResponse.data.status;
+        console.log(`Stato deploy (${attempts}/${maxAttempts}): ${status}`);
+
+        if (status === 'READY') {
+          isReady = true;
+          finalDeployment = checkResponse.data;
+        } else if (status === 'ERROR' || status === 'CANCELED') {
+          throw new Error(`Il deploy è fallito con stato: ${status}`);
+        }
+      }
+
+      if (!isReady) {
+        throw new Error('Timeout: Il deploy sta impiegando troppo tempo, ma è ancora in corso su Vercel.');
+      }
+
+      res.json({
+        id: projectResponse.data.id,
+        url: finalDeployment.url,
+        name: projectResponse.data.name
+      });
     } catch (error: any) {
       const errorData = error.response?.data;
       let errorMessage = errorData?.error?.message || errorData?.message || error.message;

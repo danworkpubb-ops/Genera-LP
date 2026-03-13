@@ -176,12 +176,19 @@ export default function App() {
           throw new Error(errorData.error || 'Errore durante il deploy su Vercel');
         }
 
-        const vercelProject = await response.json();
+        const vercelData = await response.json();
 
-        // 4. Aggiorna il record con l'ID di Vercel
+        // Aggiorna anche lo stato locale per il modal se è ancora aperto
+        setCreatedSiteCredentials(prev => prev ? { ...prev, domain: vercelData.url } : null);
+
+        // 4. Aggiorna il record con l'ID di Vercel e il dominio reale
         await supabase
           .from('user_sites')
-          .update({ vercel_project_id: vercelProject.id, status: 'ready' })
+          .update({ 
+            vercel_project_id: vercelData.id, 
+            domain: vercelData.url,
+            status: 'ready' 
+          })
           .eq('id', newSite.id);
       } catch (vercelErr: any) {
         console.error('Errore Deploy:', vercelErr);
