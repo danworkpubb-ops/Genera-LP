@@ -14,7 +14,9 @@ import {
   Bell,
   ChevronRight,
   ArrowLeft,
-  RefreshCw
+  RefreshCw,
+  CheckCircle,
+  Copy
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -64,6 +66,8 @@ interface Site {
   domain: string;
   status: string;
   vercel_project_id?: string;
+  admin_user?: string;
+  admin_password?: string;
 }
 
 export default function App() {
@@ -76,6 +80,7 @@ export default function App() {
   const [isCreating, setIsCreating] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newSiteName, setNewSiteName] = useState('');
+  const [createdSiteCredentials, setCreatedSiteCredentials] = useState<{user: string, pass: string, name: string} | null>(null);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   // Gestione sessione iniziale
@@ -124,6 +129,10 @@ export default function App() {
     try {
       if (!session) throw new Error('Utente non autenticato');
 
+      // Genera credenziali automatiche
+      const adminUser = 'admin@' + newSiteName.toLowerCase().replace(/\s+/g, '') + '.com';
+      const adminPassword = Math.random().toString(36).slice(-10) + 'A1!';
+
       // 2. Crea il record nel database (stato iniziale)
       const { data: newSite, error: dbError } = await supabase
         .from('user_sites')
@@ -132,13 +141,22 @@ export default function App() {
             user_id: session.id, 
             site_name: newSiteName, 
             status: 'deploying',
-            domain: `${newSiteName.toLowerCase().replace(/\s+/g, '-')}.vercel.app`
+            domain: `${newSiteName.toLowerCase().replace(/\s+/g, '-')}.vercel.app`,
+            admin_user: adminUser,
+            admin_password: adminPassword
           }
         ])
         .select()
         .single();
 
       if (dbError) throw dbError;
+
+      // Mostra subito le credenziali all'utente
+      setCreatedSiteCredentials({
+        user: adminUser,
+        pass: adminPassword,
+        name: newSiteName
+      });
 
       // 3. Chiamata al nostro backend per creare il progetto reale su Vercel
       try {
@@ -147,8 +165,7 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             siteName: newSiteName,
-            siteId: newSite.id,
-            repoPath: 'tuo-username/landing-engine-core' // Sostituisci con il tuo repo reale
+            siteId: newSite.id
           })
         });
 
@@ -165,13 +182,23 @@ export default function App() {
           .update({ vercel_project_id: vercelProject.id, status: 'ready' })
           .eq('id', newSite.id);
       } catch (vercelErr: any) {
-        console.error('Errore Deploy (proseguo comunque):', vercelErr);
-        // Non blocchiamo tutto se Vercel fallisce, ma informiamo l'utente
+        console.error('Errore Deploy:', vercelErr);
+        
+        let customMessage = vercelErr.message || 'Errore di connessione';
+        
+        if (customMessage.includes('GitHub integration')) {
+          customMessage = "⚠️ Errore Integrazione GitHub: Vercel non ha i permessi per accedere al repository. \n\nSoluzione: Vai su Vercel -> Settings -> Integrations -> GitHub e clicca su 'Configure' per autorizzare il repository del progetto cuore.";
+        }
+
+        setNotification({ 
+          type: 'error', 
+          message: customMessage 
+        });
       }
 
       // Ricarica la lista
       fetchSites();
-      setNotification({ type: 'success', message: 'Sito creato con successo!' });
+      setNotification({ type: 'success', message: 'Sito creato! Salva le credenziali qui sotto.' });
       setShowCreateModal(false);
       setNewSiteName('');
     } catch (err: any) {
@@ -415,6 +442,54 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex font-sans text-[#1A1A1A]">
+      {/* Modal Credenziali */}
+      {createdSiteCredentials && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in duration-300">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6 mx-auto">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 text-center mb-2">Sito Creato!</h3>
+            <p className="text-gray-500 text-center mb-8">Ecco le credenziali di accesso per <strong>{createdSiteCredentials.name}</strong>. Salvale in un posto sicuro.</p>
+            
+            <div className="space-y-4 mb-8">
+              <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Email Admin</label>
+                <div className="flex items-center justify-between">
+                  <code className="text-indigo-600 font-mono font-bold">{createdSiteCredentials.user}</code>
+                  <button 
+                    onClick={() => navigator.clipboard.writeText(createdSiteCredentials.user)}
+                    className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    <Copy className="w-4 h-4 text-gray-500" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Password</label>
+                <div className="flex items-center justify-between">
+                  <code className="text-indigo-600 font-mono font-bold">{createdSiteCredentials.pass}</code>
+                  <button 
+                    onClick={() => navigator.clipboard.writeText(createdSiteCredentials.pass)}
+                    className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    <Copy className="w-4 h-4 text-gray-500" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => setCreatedSiteCredentials(null)}
+              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95"
+            >
+              Ho salvato le credenziali
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Sidebar */}
       <aside className={`bg-white border-r border-[#E5E7EB] transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-20'} flex flex-col`}>
         <div className="p-6 flex items-center gap-3">
@@ -514,6 +589,14 @@ export default function App() {
         {/* Dynamic Content Area */}
         <div className="flex-1 overflow-y-auto p-8">
           {renderContent()}
+        </div>
+        
+        {/* WebSocket Note */}
+        <div className="max-w-7xl mx-auto px-8 pb-8">
+          <p className="text-[10px] text-gray-400 flex items-center gap-1.5 opacity-50">
+            <RefreshCw className="w-2.5 h-2.5" />
+            Nota tecnica: Gli errori "WebSocket" in console sono normali in questo ambiente e possono essere ignorati.
+          </p>
         </div>
       </main>
 
