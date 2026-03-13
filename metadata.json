@@ -1,0 +1,5 @@
+{
+  "name": "SaaS Sales Site Generator",
+  "description": "Piattaforma SaaS per la generazione automatica di siti di vendita con landing page, integrazione GitHub/Vercel e gestione ordini Supabase.",
+  "requestFramePermissions": []
+}
