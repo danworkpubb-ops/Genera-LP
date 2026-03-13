@@ -80,7 +80,7 @@ export default function App() {
   const [isCreating, setIsCreating] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newSiteName, setNewSiteName] = useState('');
-  const [createdSiteCredentials, setCreatedSiteCredentials] = useState<{user: string, pass: string, name: string} | null>(null);
+  const [createdSiteCredentials, setCreatedSiteCredentials] = useState<{user: string, pass: string, name: string, domain: string} | null>(null);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   // Gestione sessione iniziale
@@ -152,10 +152,12 @@ export default function App() {
       if (dbError) throw dbError;
 
       // Mostra subito le credenziali all'utente
+      const domain = `${newSiteName.toLowerCase().replace(/\s+/g, '-')}.vercel.app`;
       setCreatedSiteCredentials({
         user: adminUser,
         pass: adminPassword,
-        name: newSiteName
+        name: newSiteName,
+        domain: domain
       });
 
       // 3. Chiamata al nostro backend per creare il progetto reale su Vercel
@@ -308,7 +310,11 @@ export default function App() {
                           >
                             <Settings size={14} /> Configura
                           </button>
-                          <button className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors">
+                          <button 
+                            onClick={() => window.open(`https://${site.domain}`, '_blank')}
+                            className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
+                            title="Apri sito"
+                          >
                             <ExternalLink size={14} />
                           </button>
                         </div>
@@ -425,7 +431,11 @@ export default function App() {
                       >
                         <Settings size={18} /> Configura
                       </button>
-                      <button className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors">
+                      <button 
+                        onClick={() => window.open(`https://${site.domain}`, '_blank')}
+                        className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors"
+                        title="Apri sito"
+                      >
                         <ExternalLink size={18} />
                       </button>
                     </div>
@@ -453,6 +463,20 @@ export default function App() {
             <p className="text-gray-500 text-center mb-8">Ecco le credenziali di accesso per <strong>{createdSiteCredentials.name}</strong>. Salvale in un posto sicuro.</p>
             
             <div className="space-y-4 mb-8">
+              <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100 mb-4">
+                <label className="block text-xs font-bold text-indigo-400 uppercase tracking-wider mb-1">Link del Sito</label>
+                <div className="flex items-center justify-between">
+                  <a 
+                    href={`https://${createdSiteCredentials.domain}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-indigo-700 font-bold hover:underline flex items-center gap-2"
+                  >
+                    {createdSiteCredentials.domain} <ExternalLink size={14} />
+                  </a>
+                </div>
+              </div>
+
               <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Email Admin</label>
                 <div className="flex items-center justify-between">

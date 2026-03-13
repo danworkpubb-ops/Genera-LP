@@ -22,10 +22,16 @@ async function startServer() {
       return res.status(500).json({ error: 'VERCEL_TOKEN non configurato sul server' });
     }
 
-    const finalRepoPath = repoPath || DEFAULT_REPO;
-    console.log(`Tentativo di deploy per: ${siteName}. Repo: ${finalRepoPath}. TeamID: ${TEAM_ID || 'Nessuno'}`);
+    const rawRepoPath = repoPath || DEFAULT_REPO;
+    const sanitizedRepo = (rawRepoPath || '')
+      .replace('https://github.com/', '')
+      .replace('http://github.com/', '')
+      .replace('.git', '')
+      .trim();
 
-    if (!finalRepoPath || finalRepoPath.includes('tuo-username')) {
+    console.log(`Tentativo di deploy per: ${siteName}. Repo: ${sanitizedRepo}. TeamID: ${TEAM_ID || 'Nessuno'}`);
+
+    if (!sanitizedRepo || sanitizedRepo.includes('tuo-username')) {
       return res.status(400).json({ 
         error: 'Repository GitHub non configurato correttamente. Assicurati di aver impostato la variabile GITHUB_REPO nei Settings con il formato "username/repository".' 
       });
@@ -43,7 +49,7 @@ async function startServer() {
           name: siteName.toLowerCase().replace(/\s+/g, '-').substring(0, 30) + '-' + siteId.substring(0, 5),
           gitRepository: {
             type: 'github',
-            repo: finalRepoPath,
+            repo: sanitizedRepo,
           },
         },
         {
@@ -60,11 +66,12 @@ async function startServer() {
       console.error('Errore Vercel API:', errorMessage);
 
       if (errorMessage.includes('GitHub integration')) {
-        errorMessage = `L'integrazione GitHub di Vercel non ha accesso al repository "${finalRepoPath}". 
-        Assicurati che:
-        1. Il nome del repository sia corretto (formato: username/repo).
-        2. Hai installato l'app Vercel su GitHub per questo repository.
-        3. Se il repository è privato, il token Vercel deve avere i permessi necessari.`;
+        errorMessage = `L'integrazione GitHub di Vercel non ha accesso al repository "${sanitizedRepo}". 
+        
+        Soluzioni possibili:
+        1. Se usi un Team su Vercel, assicurati di aver inserito il "Team ID" nei Settings di AI Studio (variabile VERCEL_TEAM_ID).
+        2. Assicurati che il nome del repository sia corretto (formato: username/repo).
+        3. Vai su Vercel -> Settings -> Integrations -> GitHub e autorizza il repository.`;
       }
 
       res.status(error.response?.status || 500).json({ 
