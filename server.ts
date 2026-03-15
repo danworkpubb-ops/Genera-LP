@@ -4,6 +4,7 @@ import axios from 'axios';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
+import { GoogleGenAI } from "@google/genai";
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -23,6 +24,7 @@ async function startServer() {
     const TEAM_ID = process.env.VERCEL_TEAM_ID;
     const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
     const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+    const APP_URL = process.env.APP_URL || `https://${req.get('host')}`;
 
     if (!VERCEL_TOKEN) {
       return res.status(500).json({ error: 'VERCEL_TOKEN non configurato sul server' });
@@ -72,14 +74,14 @@ async function startServer() {
               target: ['production', 'preview', 'development']
             },
             {
-              key: 'ADMIN_EMAIL',
-              value: adminUser,
+              key: 'VITE_PROXY_URL',
+              value: APP_URL,
               type: 'plain',
               target: ['production', 'preview', 'development']
             },
             {
-              key: 'ADMIN_PASSWORD',
-              value: adminPassword,
+              key: 'VITE_SITE_ID',
+              value: siteId,
               type: 'plain',
               target: ['production', 'preview', 'development']
             },
@@ -188,6 +190,40 @@ async function startServer() {
         error: errorMessage,
         code: errorData?.error?.code || 'unknown_error'
       });
+    }
+  });
+
+  // Proxy AI per Gemini
+  app.post('/api/ai/generate', async (req, res) => {
+    const { prompt, siteId } = req.body;
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+    if (!GEMINI_API_KEY) {
+      return res.status(500).json({ error: 'GEMINI_API_KEY non configurata sul server SaaS' });
+    }
+
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt mancante' });
+    }
+
+    try {
+      console.log(`Richiesta AI ricevuta da sito: ${siteId || 'Sconosciuto'}`);
+      
+      const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+      });
+
+      const text = response.text;
+
+      // TODO: Qui potresti aggiungere la logica per scalare i crediti su Supabase
+      // usando siteId per identificare l'utente.
+
+      res.json({ text });
+    } catch (error: any) {
+      console.error('Errore Gemini Proxy:', error);
+      res.status(500).json({ error: 'Errore durante la generazione AI: ' + error.message });
     }
   });
 
