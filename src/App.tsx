@@ -19,9 +19,7 @@ import {
   Copy,
   Pencil,
   Check,
-  X,
-  Mail,
-  Lock
+  X
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -36,11 +34,6 @@ import {
 } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import { DomainManager } from './components/DomainManager';
-
-import { supabase } from './lib/supabase';
-import { vercelService } from './services/automation';
-import { Auth } from './components/Auth';
-import { User } from '@supabase/supabase-js';
 
 // Mock data for the dashboard
 const SALES_DATA = [
@@ -63,6 +56,11 @@ const SITES = [
   { id: '1', name: 'Store Sportivo', domain: 'sport-store.vercel.app', status: 'Ready' },
   { id: '2', name: 'Tech Gadgets', domain: 'tech-gadgets.vercel.app', status: 'Deploying' },
 ];
+
+import { supabase } from './lib/supabase';
+import { vercelService } from './services/automation';
+import { Auth } from './components/Auth';
+import { User } from '@supabase/supabase-js';
 
 // Tipi per i dati
 interface Site {
@@ -199,27 +197,13 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             siteName: newSiteName,
-            siteId: newSite.id,
-            adminUser: adminUser,
-            adminPassword: adminPassword,
-            ownerId: session.id
+            siteId: newSite.id
           })
         });
 
         if (!response.ok) {
-          let errorMessage = 'Errore durante il deploy su Vercel';
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorMessage;
-          } catch (e) {
-            // Se la risposta non è JSON (es. 504 Gateway Timeout)
-            if (response.status === 504) {
-              errorMessage = 'Il deploy sta impiegando più tempo del previsto, ma sta continuando in background su Vercel. Controlla la dashboard di Vercel tra qualche minuto.';
-            } else {
-              errorMessage = `Errore del server (${response.status}): Impossibile completare la richiesta.`;
-            }
-          }
-          throw new Error(errorMessage);
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Errore durante il deploy su Vercel');
         }
 
         const vercelData = await response.json();
@@ -535,26 +519,6 @@ export default function App() {
                       </div>
                     )}
                     <p className="text-gray-500 text-sm mb-6">{site.domain}</p>
-                    
-                    {site.admin_user && site.admin_password && (
-                      <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 mb-6 space-y-2">
-                        <div className="flex justify-between items-center text-[10px]">
-                          <div className="flex items-center gap-1.5 text-gray-400 font-semibold uppercase tracking-wider">
-                            <Mail size={10} />
-                            <span>Admin</span>
-                          </div>
-                          <span className="font-mono text-indigo-600 font-bold">{site.admin_user}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-[10px]">
-                          <div className="flex items-center gap-1.5 text-gray-400 font-semibold uppercase tracking-wider">
-                            <Lock size={10} />
-                            <span>Pass</span>
-                          </div>
-                          <span className="font-mono text-indigo-600 font-bold">{site.admin_password}</span>
-                        </div>
-                      </div>
-                    )}
-
                     <div className="flex gap-3">
                       <button 
                         onClick={() => setSelectedSite(site.id)}
