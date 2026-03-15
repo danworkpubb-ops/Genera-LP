@@ -14,10 +14,16 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(cors());
+  app.options('*', cors());
   app.use(express.json());
 
+  app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url}`);
+    next();
+  });
+
   // API Route per creare il progetto su Vercel
-  app.post('/api/deploy', async (req, res) => {
+  app.post(['/api/deploy', '/api/deploy/'], async (req, res) => {
     const { siteName, siteId, adminUser, adminPassword, ownerId } = req.body;
     const VERCEL_TOKEN = process.env.VERCEL_TOKEN?.trim();
     const DEFAULT_REPO = process.env.GITHUB_REPO?.trim();
