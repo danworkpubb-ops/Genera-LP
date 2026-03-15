@@ -92,6 +92,11 @@ export default function App() {
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
   const [editingSiteId, setEditingSiteId] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState('');
+  const [usage, setUsage] = useState<{sites_created_this_month: number, generations_this_month: number} | null>(null);
+  const [limits, setLimits] = useState<{SITES_PER_MONTH: number, GENERATIONS_PER_MONTH: number} | null>(null);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedContent, setGeneratedContent] = useState('');
 
   // Gestione sessione iniziale
   useEffect(() => {
@@ -108,12 +113,26 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session?.user ?? null);
-      if (session?.user) fetchSites();
+      if (session?.user) {
+        fetchSites();
+        fetchUsage(session.user.id);
+      }
       else setSites([]);
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const fetchUsage = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/usage/${userId}`);
+      const data = await response.json();
+      if (data.usage) setUsage(data.usage);
+      if (data.limits) setLimits(data.limits);
+    } catch (err) {
+      console.error('Errore caricamento consumi:', err);
+    }
+  };
 
   const fetchSites = async () => {
     setIsLoading(true);
@@ -262,6 +281,7 @@ export default function App() {
 
       // Ricarica la lista
       fetchSites();
+      fetchUsage(session.id);
       setNotification({ type: 'success', message: 'Sito creato! Salva le credenziali qui sotto.' });
       setShowCreateModal(false);
       setNewSiteName('');
@@ -276,6 +296,28 @@ export default function App() {
   if (!session) {
     return <Auth onAuthSuccess={() => {}} />;
   }
+
+  const handleAiGenerate = async () => {
+    if (!aiPrompt.trim() || !session) return;
+    setIsGenerating(true);
+    setNotification(null);
+    try {
+      const response = await fetch('/api/ai/generate-landing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: aiPrompt, userId: session.id })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Errore generazione');
+      setGeneratedContent(data.content);
+      fetchUsage(session.id);
+      setNotification({ type: 'success', message: 'Landing page generata con successo!' });
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const renderContent = () => {
     if (selectedSite) {
@@ -305,6 +347,53 @@ export default function App() {
     }
 
     switch (activeTab) {
+      case 'ai':
+        return (
+          <div className="max-w-4xl mx-auto">
+            <h1 className="text-3xl font-bold mb-2">AI Landing Generator</h1>
+            <p className="text-gray-500 mb-8">Usa l'intelligenza artificiale per creare il contenuto della tua prossima landing page.</p>
+            
+            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm mb-8">
+              <label className="block text-sm font-bold text-gray-700 mb-2">Descrivi la tua landing page</label>
+              <textarea 
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="Es: Una landing page per un servizio di dog sitting a Milano, stile moderno e colori caldi..."
+                className="w-full h-32 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all mb-4"
+              />
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-gray-400">
+                  Consumo: {usage?.generations_this_month || 0} / {limits?.GENERATIONS_PER_MONTH || 5} generazioni questo mese
+                </p>
+                <button 
+                  onClick={handleAiGenerate}
+                  disabled={isGenerating || (usage?.generations_this_month || 0) >= (limits?.GENERATIONS_PER_MONTH || 5)}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 transition-all disabled:opacity-50"
+                >
+                  {isGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus size={20} />}
+                  Genera Contenuto
+                </button>
+              </div>
+            </div>
+
+            {generatedContent && (
+              <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold">Contenuto Generato</h3>
+                  <button 
+                    onClick={() => navigator.clipboard.writeText(generatedContent)}
+                    className="text-indigo-600 hover:text-indigo-700 text-sm font-bold flex items-center gap-1"
+                  >
+                    <Copy size={14} /> Copia Codice
+                  </button>
+                </div>
+                <pre className="bg-gray-900 text-gray-100 p-4 rounded-xl overflow-x-auto text-xs font-mono max-h-[500px]">
+                  {generatedContent}
+                </pre>
+              </div>
+            )}
+          </div>
+        );
       case 'dashboard':
         return (
           <div className="max-w-7xl mx-auto">
@@ -330,10 +419,10 @@ export default function App() {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <StatCard title="Vendite Totali" value="€0" change="0%" icon={<TrendingUp className="text-emerald-600" />} />
-              <StatCard title="Ordini Ricevuti" value="0" change="0%" icon={<ShoppingCart className="text-indigo-600" />} />
-              <StatCard title="Siti Attivi" value={sites.length.toString()} change="0%" icon={<Globe className="text-blue-600" />} />
-              <StatCard title="Clienti Unici" value="0" change="0%" icon={<Users className="text-orange-600" />} />
+              <StatCard title="Siti Creati" value={`${usage?.sites_created_this_month || 0}/${limits?.SITES_PER_MONTH || 1}`} change="Limite Mensile" icon={<Globe className="text-emerald-600" />} />
+              <StatCard title="AI Generazioni" value={`${usage?.generations_this_month || 0}/${limits?.GENERATIONS_PER_MONTH || 5}`} change="Limite Mensile" icon={<TrendingUp className="text-indigo-600" />} />
+              <StatCard title="Siti Attivi" value={sites.length.toString()} change="Totali" icon={<Globe className="text-blue-600" />} />
+              <StatCard title="Stato Piano" value="Base" change="Attivo" icon={<CheckCircle className="text-orange-600" />} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -683,6 +772,13 @@ export default function App() {
             label="Ordini" 
             active={activeTab === 'orders'} 
             onClick={() => { navigate('/orders'); setActiveTab('orders'); }}
+            collapsed={!isSidebarOpen}
+          />
+          <NavItem 
+            icon={<TrendingUp size={20} />} 
+            label="AI Generator" 
+            active={activeTab === 'ai'} 
+            onClick={() => { navigate('/ai'); setActiveTab('ai'); }}
             collapsed={!isSidebarOpen}
           />
         </nav>

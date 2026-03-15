@@ -22,8 +22,11 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server pronto su http://localhost:${PORT}`);
+    console.log(`Server pronto su http://0.0.0.0:${PORT}`);
+    console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
   });
 }
 
-startServer();
+startServer().catch(err => {
+  console.error('Errore durante l\'avvio del server:', err);
+});
