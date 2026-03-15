@@ -19,7 +19,9 @@ import {
   Copy,
   Pencil,
   Check,
-  X
+  X,
+  Mail,
+  Lock
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -34,6 +36,11 @@ import {
 } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import { DomainManager } from './components/DomainManager';
+
+import { supabase } from './lib/supabase';
+import { vercelService } from './services/automation';
+import { Auth } from './components/Auth';
+import { User } from '@supabase/supabase-js';
 
 // Mock data for the dashboard
 const SALES_DATA = [
@@ -56,11 +63,6 @@ const SITES = [
   { id: '1', name: 'Store Sportivo', domain: 'sport-store.vercel.app', status: 'Ready' },
   { id: '2', name: 'Tech Gadgets', domain: 'tech-gadgets.vercel.app', status: 'Deploying' },
 ];
-
-import { supabase } from './lib/supabase';
-import { vercelService } from './services/automation';
-import { Auth } from './components/Auth';
-import { User } from '@supabase/supabase-js';
 
 // Tipi per i dati
 interface Site {
@@ -197,13 +199,27 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             siteName: newSiteName,
-            siteId: newSite.id
+            siteId: newSite.id,
+            adminUser: adminUser,
+            adminPassword: adminPassword,
+            ownerId: session.id
           })
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Errore durante il deploy su Vercel');
+          let errorMessage = 'Errore durante il deploy su Vercel';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+          } catch (e) {
+            // Se la risposta non è JSON (es. 504 Gateway Timeout)
+            if (response.status === 504) {
+              errorMessage = 'Il deploy sta impiegando più tempo del previsto, ma sta continuando in background su Vercel. Controlla la dashboard di Vercel tra qualche minuto.';
+            } else {
+              errorMessage = `Errore del server (${response.status}): Impossibile completare la richiesta.`;
+            }
+          }
+          throw new Error(errorMessage);
         }
 
         const vercelData = await response.json();
@@ -254,6 +270,7 @@ export default function App() {
 
   const renderContent = () => {
     if (selectedSite) {
+      const currentSite = sites.find(s => s.id === selectedSite);
       return (
         <div className="max-w-4xl mx-auto">
           <button 
@@ -268,7 +285,12 @@ export default function App() {
             <p className="text-gray-500">Gestisci il dominio e le impostazioni tecniche per il tuo sito.</p>
           </div>
 
-          <DomainManager />
+          {currentSite && (
+            <DomainManager 
+              site={currentSite} 
+              onUpdate={fetchSites} 
+            />
+          )}
         </div>
       );
     }
@@ -513,6 +535,26 @@ export default function App() {
                       </div>
                     )}
                     <p className="text-gray-500 text-sm mb-6">{site.domain}</p>
+                    
+                    {site.admin_user && site.admin_password && (
+                      <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 mb-6 space-y-2">
+                        <div className="flex justify-between items-center text-[10px]">
+                          <div className="flex items-center gap-1.5 text-gray-400 font-semibold uppercase tracking-wider">
+                            <Mail size={10} />
+                            <span>Admin</span>
+                          </div>
+                          <span className="font-mono text-indigo-600 font-bold">{site.admin_user}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px]">
+                          <div className="flex items-center gap-1.5 text-gray-400 font-semibold uppercase tracking-wider">
+                            <Lock size={10} />
+                            <span>Pass</span>
+                          </div>
+                          <span className="font-mono text-indigo-600 font-bold">{site.admin_password}</span>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex gap-3">
                       <button 
                         onClick={() => setSelectedSite(site.id)}
@@ -548,24 +590,17 @@ export default function App() {
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6 mx-auto">
               <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 text-center mb-2">Sito Creato!</h3>
-            <p className="text-gray-500 text-center mb-8">Ecco le credenziali di accesso per <strong>{createdSiteCredentials.name}</strong>. Salvale in un posto sicuro.</p>
+            <h3 className="text-2xl font-bold text-gray-900 text-center mb-2">Sito in Creazione!</h3>
+            <p className="text-gray-500 text-center mb-6">Abbiamo avviato la costruzione del tuo store <strong>{createdSiteCredentials.name}</strong>.</p>
             
-            <div className="space-y-4 mb-8">
-              <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100 mb-4">
-                <label className="block text-xs font-bold text-indigo-400 uppercase tracking-wider mb-1">Link del Sito</label>
-                <div className="flex items-center justify-between">
-                  <a 
-                    href={`https://${createdSiteCredentials.domain}`} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-indigo-700 font-bold hover:underline flex items-center gap-2"
-                  >
-                    {createdSiteCredentials.domain} <ExternalLink size={14} />
-                  </a>
-                </div>
-              </div>
+            <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl mb-6 flex items-start gap-3">
+              <RefreshCw className="w-5 h-5 text-amber-600 animate-spin mt-0.5" />
+              <p className="text-sm text-amber-800">
+                <strong>Nota:</strong> Il sito è in fase di deploy su Vercel. Sarà raggiungibile tra circa 1-2 minuti. Nel frattempo, salva le tue credenziali.
+              </p>
+            </div>
 
+            <div className="space-y-4 mb-8">
               <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Email Admin</label>
                 <div className="flex items-center justify-between">
@@ -751,7 +786,12 @@ export default function App() {
                   disabled={isCreating}
                   className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-indigo-200 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {isCreating ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Crea Ora'}
+                  {isCreating ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Costruendo...</span>
+                    </>
+                  ) : 'Crea Ora'}
                 </button>
               </div>
             </form>
