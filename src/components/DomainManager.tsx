@@ -102,6 +102,14 @@ export const DomainManager: React.FC<DomainManagerProps> = ({ site, onUpdate }) 
     navigator.clipboard.writeText(text);
   };
 
+  const verifyStatus = () => {
+    setIsVerifying(true);
+    setTimeout(() => {
+      setIsVerifying(false);
+      setNotification({ type: 'success', message: 'Verifica in corso... Potrebbero volerci fino a 48 ore.' });
+    }, 2000);
+  };
+
   const isVercelDomain = site.domain.endsWith('.vercel.app');
 
   return (

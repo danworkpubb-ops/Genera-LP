@@ -36,6 +36,7 @@ import {
 } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import { DomainManager } from './components/DomainManager';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 import { supabase } from './lib/supabase';
 import { vercelService } from './services/automation';
@@ -76,6 +77,8 @@ interface Site {
 }
 
 export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [session, setSession] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -91,6 +94,12 @@ export default function App() {
   const [editNameValue, setEditNameValue] = useState('');
 
   // Gestione sessione iniziale
+  useEffect(() => {
+    // Sincronizza activeTab con l'URL
+    const path = location.pathname.replace('/', '') || 'dashboard';
+    setActiveTab(path);
+  }, [location.pathname]);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session?.user ?? null);
@@ -109,11 +118,9 @@ export default function App() {
   const fetchSites = async () => {
     setIsLoading(true);
     try {
-      if (!session) throw new Error('Utente non autenticato');
       const { data, error } = await supabase
         .from('user_sites')
         .select('*')
-        .eq('user_id', session.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -654,28 +661,28 @@ export default function App() {
             icon={<LayoutDashboard size={20} />} 
             label="Dashboard" 
             active={activeTab === 'dashboard' && !selectedSite} 
-            onClick={() => { setActiveTab('dashboard'); setSelectedSite(null); }}
+            onClick={() => { navigate('/dashboard'); setActiveTab('dashboard'); setSelectedSite(null); }}
             collapsed={!isSidebarOpen}
           />
           <NavItem 
             icon={<Globe size={20} />} 
             label="I miei Siti" 
             active={activeTab === 'sites' || selectedSite !== null} 
-            onClick={() => { setActiveTab('sites'); setSelectedSite(null); }}
+            onClick={() => { navigate('/sites'); setActiveTab('sites'); setSelectedSite(null); }}
             collapsed={!isSidebarOpen}
           />
           <NavItem 
             icon={<Package size={20} />} 
             label="Prodotti" 
             active={activeTab === 'products'} 
-            onClick={() => setActiveTab('products')}
+            onClick={() => { navigate('/products'); setActiveTab('products'); }}
             collapsed={!isSidebarOpen}
           />
           <NavItem 
             icon={<ShoppingCart size={20} />} 
             label="Ordini" 
             active={activeTab === 'orders'} 
-            onClick={() => setActiveTab('orders')}
+            onClick={() => { navigate('/orders'); setActiveTab('orders'); }}
             collapsed={!isSidebarOpen}
           />
         </nav>
@@ -685,7 +692,7 @@ export default function App() {
             icon={<Settings size={20} />} 
             label="Impostazioni" 
             active={activeTab === 'settings'} 
-            onClick={() => setActiveTab('settings')}
+            onClick={() => { navigate('/settings'); setActiveTab('settings'); }}
             collapsed={!isSidebarOpen}
           />
           <NavItem 
