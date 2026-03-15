@@ -19,15 +19,19 @@ async function startServer() {
   // API Route per creare il progetto su Vercel
   app.post('/api/deploy', async (req, res) => {
     const { siteName, siteId, adminUser, adminPassword, ownerId } = req.body;
-    const VERCEL_TOKEN = process.env.VERCEL_TOKEN;
-    const DEFAULT_REPO = process.env.GITHUB_REPO;
-    const TEAM_ID = process.env.VERCEL_TEAM_ID;
-    const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-    const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+    const VERCEL_TOKEN = process.env.VERCEL_TOKEN?.trim();
+    const DEFAULT_REPO = process.env.GITHUB_REPO?.trim();
+    const TEAM_ID = process.env.VERCEL_TEAM_ID?.trim();
+    const SUPABASE_URL = process.env.VITE_SUPABASE_URL?.trim();
+    const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY?.trim();
     const APP_URL = process.env.APP_URL || `https://${req.get('host')}`;
 
     if (!VERCEL_TOKEN) {
       return res.status(500).json({ error: 'VERCEL_TOKEN non configurato sul server' });
+    }
+
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      return res.status(500).json({ error: 'Le variabili Supabase (VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY) non sono configurate sul server. Aggiungile nei Secret di AI Studio.' });
     }
 
     const rawRepoPath = DEFAULT_REPO;
@@ -35,6 +39,7 @@ async function startServer() {
       .replace('https://github.com/', '')
       .replace('http://github.com/', '')
       .replace('.git', '')
+      .replace(/\/$/, '')
       .trim();
 
     console.log(`Tentativo di deploy per: ${siteName}. Repo: ${sanitizedRepo}. TeamID: ${TEAM_ID || 'Nessuno'}`);
