@@ -109,9 +109,11 @@ export default function App() {
   const fetchSites = async () => {
     setIsLoading(true);
     try {
+      if (!session) throw new Error('Utente non autenticato');
       const { data, error } = await supabase
         .from('user_sites')
         .select('*')
+        .eq('user_id', session.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

@@ -67,12 +67,35 @@ export const DomainManager: React.FC<DomainManagerProps> = ({ site, onUpdate }) 
     }
   };
 
-  const verifyStatus = () => {
-    setIsVerifying(true);
-    setTimeout(() => {
-      setIsVerifying(false);
-      setNotification({ type: 'success', message: 'Verifica in corso... Potrebbero volerci fino a 48 ore.' });
-    }, 2000);
+  const handleDeleteSite = async () => {
+    if (window.confirm("Sei sicuro di voler eliminare questo sito? Questa operazione è irreversibile.")) {
+      try {
+        const response = await fetch('/api/delete-site', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId: site.vercel_project_id })
+        });
+        if (!response.ok) throw new Error('Errore durante l\'eliminazione');
+        window.location.reload(); // Ricarica la pagina dopo l'eliminazione
+      } catch (err) {
+        setNotification({ type: 'error', message: 'Errore durante l\'eliminazione del sito.' });
+      }
+    }
+  };
+
+  const handleManageDomain = async (action: 'add' | 'remove', domain: string) => {
+    try {
+      const response = await fetch('/api/manage-domain', {
+        method: action === 'add' ? 'POST' : 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: site.vercel_project_id, domain, action })
+      });
+      if (!response.ok) throw new Error('Errore gestione dominio');
+      onUpdate();
+      setNotification({ type: 'success', message: `Dominio ${action === 'add' ? 'aggiunto' : 'rimosso'} con successo.` });
+    } catch (err) {
+      setNotification({ type: 'error', message: 'Errore gestione dominio.' });
+    }
   };
 
   const copyToClipboard = (text: string) => {
@@ -104,17 +127,24 @@ export const DomainManager: React.FC<DomainManagerProps> = ({ site, onUpdate }) 
           </div>
         </div>
 
-        <div className="mb-8 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+        <div className="mb-8 p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Dominio Attuale</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Dominio Vercel (Default)</p>
               <p className="text-lg font-mono font-bold text-indigo-600">{site.domain}</p>
             </div>
-            {isVercelDomain ? (
-              <span className="px-3 py-1 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded-full uppercase">Default Vercel</span>
-            ) : (
-              <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full uppercase">Personalizzato</span>
-            )}
+            <span className="px-3 py-1 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded-full uppercase">Scorta</span>
+          </div>
+          
+          {/* Qui andrebbe la logica per mostrare/gestire il custom_domain se esistesse nel sito */}
+          {/* Per ora aggiungiamo solo il bottone elimina */}
+          <div className="pt-4 border-t border-gray-200">
+            <button
+              onClick={handleDeleteSite}
+              className="w-full py-2 bg-red-50 text-red-600 rounded-lg text-sm font-bold hover:bg-red-100 transition-colors"
+            >
+              Elimina Sito
+            </button>
           </div>
         </div>
 
