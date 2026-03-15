@@ -1,9 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 import dotenv from 'dotenv';
+import { VercelRequest, VercelResponse } from '@vercel/node';
 
 dotenv.config();
 
-export default async function handler(req, res) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
