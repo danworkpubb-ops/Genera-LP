@@ -201,7 +201,8 @@ export default function App() {
             siteName: newSiteName,
             siteId: newSite.id,
             adminUser: adminUser,
-            adminPassword: adminPassword
+            adminPassword: adminPassword,
+            ownerId: session.user.id
           })
         });
 

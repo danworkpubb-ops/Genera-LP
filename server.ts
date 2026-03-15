@@ -18,7 +18,7 @@ async function startServer() {
 
   // API Route per creare il progetto su Vercel
   app.post('/api/deploy', async (req, res) => {
-    const { siteName, siteId, adminUser, adminPassword } = req.body;
+    const { siteName, siteId, adminUser, adminPassword, ownerId } = req.body;
     const VERCEL_TOKEN = process.env.VERCEL_TOKEN;
     const DEFAULT_REPO = process.env.GITHUB_REPO;
     const TEAM_ID = process.env.VERCEL_TEAM_ID;
@@ -82,6 +82,12 @@ async function startServer() {
             {
               key: 'VITE_SITE_ID',
               value: siteId,
+              type: 'plain',
+              target: ['production', 'preview', 'development']
+            },
+            {
+              key: 'VITE_OWNER_ID',
+              value: ownerId,
               type: 'plain',
               target: ['production', 'preview', 'development']
             },
