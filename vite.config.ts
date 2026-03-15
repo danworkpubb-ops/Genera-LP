@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig, loadEnv} from 'vite';
 import express from 'express';
+import cors from 'cors';
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from '@supabase/supabase-js';
 import deployHandler from './api/deploy';
@@ -17,6 +18,7 @@ export default defineConfig(({mode}) => {
     name: 'api-plugin',
     configureServer(server) {
       const app = express();
+      app.use(cors()); // ABILITA CORS
       app.use(express.json());
 
       // Helper per convertire Vercel handler in Express route
