@@ -207,19 +207,8 @@ export default function App() {
         });
 
         if (!response.ok) {
-          let errorMessage = 'Errore durante il deploy su Vercel';
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorMessage;
-          } catch (e) {
-            // Se la risposta non è JSON (es. 504 Gateway Timeout)
-            if (response.status === 504) {
-              errorMessage = 'Il deploy sta impiegando più tempo del previsto, ma sta continuando in background su Vercel. Controlla la dashboard di Vercel tra qualche minuto.';
-            } else {
-              errorMessage = `Errore del server (${response.status}): Impossibile completare la richiesta.`;
-            }
-          }
-          throw new Error(errorMessage);
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Errore durante il deploy su Vercel');
         }
 
         const vercelData = await response.json();
