@@ -3,6 +3,10 @@ import cors from 'cors';
 import axios from 'axios';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 async function startServer() {
   const app = express();
@@ -13,16 +17,18 @@ async function startServer() {
 
   // API Route per creare il progetto su Vercel
   app.post('/api/deploy', async (req, res) => {
-    const { siteName, siteId, repoPath } = req.body;
+    const { siteName, siteId, adminUser, adminPassword } = req.body;
     const VERCEL_TOKEN = process.env.VERCEL_TOKEN;
     const DEFAULT_REPO = process.env.GITHUB_REPO;
     const TEAM_ID = process.env.VERCEL_TEAM_ID;
+    const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+    const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 
     if (!VERCEL_TOKEN) {
       return res.status(500).json({ error: 'VERCEL_TOKEN non configurato sul server' });
     }
 
-    const rawRepoPath = repoPath || DEFAULT_REPO;
+    const rawRepoPath = DEFAULT_REPO;
     const sanitizedRepo = (rawRepoPath || '')
       .replace('https://github.com/', '')
       .replace('http://github.com/', '')
@@ -38,7 +44,7 @@ async function startServer() {
     }
 
     try {
-      // 1. Crea il progetto su Vercel
+      // 1. Crea il progetto su Vercel con variabili d'ambiente
       const projectUrl = TEAM_ID 
         ? `https://api.vercel.com/v9/projects?teamId=${TEAM_ID}`
         : `https://api.vercel.com/v9/projects`;
@@ -52,6 +58,44 @@ async function startServer() {
             type: 'github',
             repo: sanitizedRepo,
           },
+          environmentVariables: [
+            {
+              key: 'VITE_SUPABASE_URL',
+              value: SUPABASE_URL,
+              type: 'plain',
+              target: ['production', 'preview', 'development']
+            },
+            {
+              key: 'VITE_SUPABASE_ANON_KEY',
+              value: SUPABASE_ANON_KEY,
+              type: 'plain',
+              target: ['production', 'preview', 'development']
+            },
+            {
+              key: 'ADMIN_EMAIL',
+              value: adminUser,
+              type: 'plain',
+              target: ['production', 'preview', 'development']
+            },
+            {
+              key: 'ADMIN_PASSWORD',
+              value: adminPassword,
+              type: 'plain',
+              target: ['production', 'preview', 'development']
+            },
+            {
+              key: 'VITE_ADMIN_EMAIL',
+              value: adminUser,
+              type: 'plain',
+              target: ['production', 'preview', 'development']
+            },
+            {
+              key: 'VITE_ADMIN_PASSWORD',
+              value: adminPassword,
+              type: 'plain',
+              target: ['production', 'preview', 'development']
+            }
+          ]
         },
         {
           headers: {
