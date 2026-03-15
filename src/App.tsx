@@ -254,7 +254,6 @@ export default function App() {
 
   const renderContent = () => {
     if (selectedSite) {
-      const currentSite = sites.find(s => s.id === selectedSite);
       return (
         <div className="max-w-4xl mx-auto">
           <button 
@@ -269,12 +268,7 @@ export default function App() {
             <p className="text-gray-500">Gestisci il dominio e le impostazioni tecniche per il tuo sito.</p>
           </div>
 
-          {currentSite && (
-            <DomainManager 
-              site={currentSite} 
-              onUpdate={fetchSites} 
-            />
-          )}
+          <DomainManager />
         </div>
       );
     }
@@ -554,17 +548,24 @@ export default function App() {
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6 mx-auto">
               <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 text-center mb-2">Sito in Creazione!</h3>
-            <p className="text-gray-500 text-center mb-6">Abbiamo avviato la costruzione del tuo store <strong>{createdSiteCredentials.name}</strong>.</p>
+            <h3 className="text-2xl font-bold text-gray-900 text-center mb-2">Sito Creato!</h3>
+            <p className="text-gray-500 text-center mb-8">Ecco le credenziali di accesso per <strong>{createdSiteCredentials.name}</strong>. Salvale in un posto sicuro.</p>
             
-            <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl mb-6 flex items-start gap-3">
-              <RefreshCw className="w-5 h-5 text-amber-600 animate-spin mt-0.5" />
-              <p className="text-sm text-amber-800">
-                <strong>Nota:</strong> Il sito è in fase di deploy su Vercel. Sarà raggiungibile tra circa 1-2 minuti. Nel frattempo, salva le tue credenziali.
-              </p>
-            </div>
-
             <div className="space-y-4 mb-8">
+              <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100 mb-4">
+                <label className="block text-xs font-bold text-indigo-400 uppercase tracking-wider mb-1">Link del Sito</label>
+                <div className="flex items-center justify-between">
+                  <a 
+                    href={`https://${createdSiteCredentials.domain}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-indigo-700 font-bold hover:underline flex items-center gap-2"
+                  >
+                    {createdSiteCredentials.domain} <ExternalLink size={14} />
+                  </a>
+                </div>
+              </div>
+
               <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Email Admin</label>
                 <div className="flex items-center justify-between">
@@ -750,12 +751,7 @@ export default function App() {
                   disabled={isCreating}
                   className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-indigo-200 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {isCreating ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Costruendo...</span>
-                    </>
-                  ) : 'Crea Ora'}
+                  {isCreating ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Crea Ora'}
                 </button>
               </div>
             </form>
