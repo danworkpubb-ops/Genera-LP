@@ -108,7 +108,10 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session?.user ?? null);
-      if (session?.user) fetchSites();
+      if (session?.user) {
+        fetchSites();
+        fetchUsage(session.user.id);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {

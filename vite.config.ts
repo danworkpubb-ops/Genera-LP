@@ -45,9 +45,9 @@ export default defineConfig(({mode}) => {
       let supabaseAdmin: any = null;
       const getSupabaseAdmin = () => {
         if (!supabaseAdmin) {
-          const url = env.VITE_SUPABASE_URL;
-          const key = env.SUPABASE_SERVICE_ROLE_KEY;
-          if (!url || !key) throw new Error('Configurazione Supabase mancante');
+          const url = (env.VITE_SUPABASE_URL || env.SUPABASE_URL)?.trim();
+          const key = (env.SUPABASE_SERVICE_ROLE_KEY || env.SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_KEY)?.trim();
+          if (!url || !key) throw new Error('Configurazione Supabase mancante (SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY)');
           supabaseAdmin = createClient(url, key);
         }
         return supabaseAdmin;

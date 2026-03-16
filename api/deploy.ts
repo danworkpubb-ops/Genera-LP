@@ -1,6 +1,7 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
 import { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@supabase/supabase-js';
 
 dotenv.config();
 
@@ -20,6 +21,8 @@ const allowCors = (fn: any) => async (req: VercelRequest, res: VercelResponse) =
   return await fn(req, res);
 };
 
+const LIMITS = { SITES_PER_MONTH: 1, GENERATIONS_PER_MONTH: 5 };
+
 const handler = async (req: VercelRequest, res: VercelResponse) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -29,17 +32,20 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
   const VERCEL_TOKEN = process.env.VERCEL_TOKEN?.trim();
   const DEFAULT_REPO = process.env.GITHUB_REPO?.trim();
   const TEAM_ID = process.env.VERCEL_TEAM_ID?.trim();
-  const SUPABASE_URL = process.env.VITE_SUPABASE_URL?.trim();
-  const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY?.trim();
+  const SUPABASE_URL = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL)?.trim();
+  const SUPABASE_ANON_KEY = (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY)?.trim();
+  const SUPABASE_SERVICE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY)?.trim();
   const APP_URL = process.env.APP_URL || `https://${req.headers.host}`;
 
   if (!VERCEL_TOKEN) {
     return res.status(500).json({ error: 'VERCEL_TOKEN non configurato sul server' });
   }
 
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    return res.status(500).json({ error: 'Le variabili Supabase (VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY) non sono configurate sul server. Aggiungile nei Secret di AI Studio.' });
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_KEY) {
+    return res.status(500).json({ error: 'Configurazione Supabase incompleta (manca URL, ANON_KEY o SERVICE_ROLE_KEY). Assicurati di averle aggiunte correttamente nei Secret di AI Studio.' });
   }
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
   const rawRepoPath = DEFAULT_REPO;
   const sanitizedRepo = (rawRepoPath || '')
@@ -58,6 +64,29 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
   }
 
   try {
+    // 0. Verifica limiti di consumo
+    let { data: usage, error: usageError } = await supabase
+      .from('user_usage')
+      .select('*')
+      .eq('user_id', ownerId)
+      .single();
+
+    if (usageError && usageError.code === 'PGRST116') {
+      const { data: newUsage, error: createError } = await supabase
+        .from('user_usage')
+        .insert([{ user_id: ownerId }])
+        .select()
+        .single();
+      if (createError) throw createError;
+      usage = newUsage;
+    } else if (usageError) {
+      throw usageError;
+    }
+
+    if (usage.sites_created_this_month >= LIMITS.SITES_PER_MONTH) {
+      return res.status(403).json({ error: `Hai raggiunto il limite di ${LIMITS.SITES_PER_MONTH} sito al mese.` });
+    }
+
     // 1. Crea il progetto su Vercel con variabili d'ambiente
     const projectUrl = TEAM_ID 
       ? `https://api.vercel.com/v9/projects?teamId=${TEAM_ID}`
@@ -184,6 +213,12 @@ const handler = async (req: VercelRequest, res: VercelResponse) => {
     if (!isReady) {
       throw new Error('Timeout: Il deploy sta impiegando troppo tempo, ma è ancora in corso su Vercel.');
     }
+
+    // 4. Incrementa il contatore dei siti creati
+    await supabase
+      .from('user_usage')
+      .update({ sites_created_this_month: usage.sites_created_this_month + 1 })
+      .eq('user_id', ownerId);
 
     res.json({
       id: projectResponse.data.id,

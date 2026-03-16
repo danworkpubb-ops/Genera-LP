@@ -7,11 +7,11 @@ let supabaseAdmin: any = null;
 
 function getSupabaseAdmin() {
   if (!supabaseAdmin) {
-    const supabaseUrl = process.env.VITE_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
     
     if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Configurazione Supabase mancante (VITE_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY)');
+      throw new Error('Configurazione Supabase mancante (SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY)');
     }
     
     supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
