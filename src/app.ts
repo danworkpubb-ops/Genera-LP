@@ -24,7 +24,11 @@ function getAI() {
   return aiInstance;
 }
 
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 // Helper per convertire Vercel handler in Express route
