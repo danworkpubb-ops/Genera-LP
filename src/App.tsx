@@ -126,14 +126,26 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const API_URL = import.meta.env.VITE_API_URL || '';
+
   const fetchUsage = async (userId: string) => {
     try {
-      const response = await fetch(`/api/usage/${userId}`);
-      const data = await response.json();
-      if (data.usage) setUsage(data.usage);
-      if (data.limits) setLimits(data.limits);
-    } catch (err) {
+      const response = await fetch(`${API_URL}/api/usage/${userId}`);
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        throw new Error(`Errore server (${response.status})`);
+      }
+      
+      if (!response.ok) {
+        throw new Error(data?.error || 'Errore nel recupero dei consumi');
+      }
+      if (data?.usage) setUsage(data.usage);
+      if (data?.limits) setLimits(data.limits);
+    } catch (err: any) {
       console.error('Errore caricamento consumi:', err);
+      setNotification({ type: 'error', message: `Errore consumi: ${err.message}` });
     }
   };
 
@@ -225,7 +237,7 @@ export default function App() {
 
       // 3. Chiamata al nostro backend per creare il progetto reale su Vercel
       try {
-        const response = await fetch('/api/deploy', {
+        const response = await fetch(`${API_URL}/api/deploy`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -305,7 +317,7 @@ export default function App() {
     setIsGenerating(true);
     setNotification(null);
     try {
-      const response = await fetch('/api/ai/generate-landing', {
+      const response = await fetch(`${API_URL}/api/ai/generate-landing`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: aiPrompt, userId: session.id })

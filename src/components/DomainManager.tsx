@@ -67,10 +67,12 @@ export const DomainManager: React.FC<DomainManagerProps> = ({ site, onUpdate }) 
     }
   };
 
+  const API_URL = import.meta.env.VITE_API_URL || '';
+
   const handleDeleteSite = async () => {
     if (window.confirm("Sei sicuro di voler eliminare questo sito? Questa operazione è irreversibile.")) {
       try {
-        const response = await fetch('/api/delete-site', {
+        const response = await fetch(`${API_URL}/api/delete-site`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ projectId: site.vercel_project_id })
@@ -85,7 +87,7 @@ export const DomainManager: React.FC<DomainManagerProps> = ({ site, onUpdate }) 
 
   const handleManageDomain = async (action: 'add' | 'remove', domain: string) => {
     try {
-      const response = await fetch('/api/manage-domain', {
+      const response = await fetch(`${API_URL}/api/manage-domain`, {
         method: action === 'add' ? 'POST' : 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId: site.vercel_project_id, domain, action })
